@@ -134,7 +134,7 @@ curl http://localhost:8080/estatisticas?cidade=Ceres
 
 ### Prints
 
-![Sistema funcionando](docs/print (1).png)
-![Sistema funcionando](docs/print (2).png)
-![Sistema funcionando](docs/print (3).png)
-![Sistema funcionando](docs/print (4).png)
+![Sistema funcionando](docs/print(1).png)
+![Sistema funcionando](docs/print(2).png)
+![Sistema funcionando](docs/print(3).png)
+![Sistema funcionando](docs/print(4).png)
