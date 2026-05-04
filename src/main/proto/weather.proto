@@ -1,69 +1,56 @@
 syntax = "proto3";
 
-option java_multiple_files = true;
-option java_package = "org.ifgoiano.grpc.lib";
-option java_outer_classname = "WeatherProto";
-
 package weather;
 
-service WeatherService {
-    // 1. Obter temperatura atual por cidade
-    rpc GetCurrentTemperature(CityRequest) returns (TemperatureResponse);
-
-    // 2. Obter previsão dos próximos 5 dias para uma cidade
-    rpc GetFiveDayForecast(CityRequest) returns (ForecastResponse);
-
-    // 3. Listar cidades disponíveis no sistema
-    rpc ListCities(Empty) returns (CityListResponse);
-
-    // 4. Cadastrar uma nova cidade com temperatura simulada
-    rpc RegisterCity(RegisterCityRequest) returns (CityResponse);
-
-    // 5. Obter estatísticas climáticas
-    rpc GetClimateStats(CityRequest) returns (StatsResponse);
-}
+option java_multiple_files = true;
+option java_package = "org.ifgoiano.grpc.weather";
+option java_outer_classname = "WeatherProto";
 
 message Empty {}
 
-message CityRequest {
-    string name = 1;
+message CidadeRequest {
+    string nome = 1;
 }
 
-message TemperatureResponse {
-    string city_name = 1;
-    double temperature = 2;
-    string unit = 3;
+message TemperaturaResponse {
+    string cidade = 1;
+    double temperatura = 2;
 }
 
-message ForecastResponse {
-    string city_name = 1;
-    repeated ForecastDay days = 2;
+message PrevisaoDia {
+    string data = 1;
+    double temperatura = 2;
 }
 
-message ForecastDay {
-    string date = 1;
-    double min_temp = 2;
-    double max_temp = 3;
-    string condition = 4;
+message PrevisaoResponse {
+    string cidade = 1;
+    repeated PrevisaoDia dias = 2;
 }
 
-message CityListResponse {
-    repeated string cities = 1;
+message CidadesResponse {
+    repeated string cidades = 1;
 }
 
-message RegisterCityRequest {
-    string name = 1;
-    double current_temperature = 2;
+message CadastrarCidadeRequest {
+    string nome = 1;
 }
 
-message CityResponse {
-    string message = 1;
-    bool success = 2;
+message CadastrarCidadeResponse {
+    bool sucesso = 1;
+    string mensagem = 2;
 }
 
-message StatsResponse {
-    string city_name = 1;
-    double average_temperature = 2;
-    double min_temperature = 3;
-    double max_temperature = 4;
+message EstatisticasResponse {
+    string cidade = 1;
+    double media_temperatura = 2;
+    double minima = 3;
+    double maxima = 4;
+}
+
+service WeatherService {
+    rpc ObterTemperaturaAtual (CidadeRequest) returns (TemperaturaResponse);
+    rpc PrevisaoCincoDias (CidadeRequest) returns (PrevisaoResponse);
+    rpc ListarCidades (Empty) returns (CidadesResponse);
+    rpc CadastrarCidade (CadastrarCidadeRequest) returns (CadastrarCidadeResponse);
+    rpc EstatisticasClimaticas (CidadeRequest) returns (EstatisticasResponse);
 }

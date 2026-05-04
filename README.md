@@ -1,96 +1,140 @@
 # Sistema de Previsão Meteorológica Distribuído (gRPC + Spring Boot)
 
-Este projeto implementa um sistema distribuído para fornecimento de informações meteorológicas. Ele utiliza **gRPC** para a comunicação entre o cliente e o servidor, e **Spring Boot** para gerenciar a aplicação e expor uma API REST.
+Este projeto implementa um sistema distribuído para o fornecimento de informações meteorológicas de diferentes regiões. Uma aplicação cliente recebe requisições HTTP (API REST) e atua como ponte para um servidor gRPC, que é o responsável por processar e retornar os dados meteorológicos. Tudo é executado dentro do ecossistema do **Spring Boot**.
 
-## Estrutura do Projeto
+---
 
-O sistema é composto por dois componentes principais que rodam na mesma aplicação Spring Boot (para fins de simplificação):
+## 🚀 Como rodar o projeto
 
-1.  **Servidor gRPC**: Responsável pelo processamento e armazenamento (em memória) dos dados meteorológicos.
-2.  **Cliente gRPC / API REST**: Atua como uma ponte, recebendo requisições HTTP e convertendo-as em chamadas gRPC para o servidor.
+### Pré-requisitos:
 
-## Requisitos
+- Java 17+
+- Maven 3.8+
+- (Opcional) Postman, Insomnia ou `curl` para testes.
 
-*   Java 21
-*   Maven
+### Passos de Execução:
 
-## Como rodar o projeto
+1. **Clone o repositório e acesse a pasta:**
+   ```bash
+   cd grpc
+   ```
+2. **Compile o projeto** (isso é fundamental para que o plugin do Protobuf gere as classes Java automáticas a partir do `.proto`):
+   ```bash
+   ./mvnw clean install -DskipTests
+   ```
+3. **Execute a aplicação Spring Boot:**
+   ```bash
+   ./mvnw spring-boot:run
+   ```
+   > A aplicação será iniciada contendo dois servidores simultâneos:
+   >
+   > - **Servidor Web (REST):** porta `8080`
+   > - **Servidor gRPC:** porta `9090`
 
-1.  Clone o repositório.
-2.  Na raiz do projeto, execute o comando para compilar e gerar os stubs do gRPC:
-    ```bash
-    ./mvnw clean compile
-    ```
-3.  Execute a aplicação Spring Boot:
-    ```bash
-    ./mvnw spring-boot:run
-    ```
-4.  A API REST estará disponível em `http://localhost:8080`.
+---
 
-## Explicação do Arquivo `.proto`
+## 📖 Entendendo o arquivo `weather.proto`
 
-O arquivo `src/main/proto/weather.proto` define a interface de comunicação entre o cliente e o servidor.
+O arquivo `.proto` define as estruturas de dados e os serviços usados pelo gRPC. Este contrato (interface) é independente da linguagem de programação.
 
-### Definição do Serviço (`service`)
+```protobuf
+syntax = "proto3";
 
-```proto
+// ... opções do java package ...
+
 service WeatherService {
-    rpc GetCurrentTemperature(CityRequest) returns (TemperatureResponse);
-    rpc GetFiveDayForecast(CityRequest) returns (ForecastResponse);
-    rpc ListCities(Empty) returns (CityListResponse);
-    rpc RegisterCity(RegisterCityRequest) returns (CityResponse);
-    rpc GetClimateStats(CityRequest) returns (StatsResponse);
+    rpc ObterTemperaturaAtual (CidadeRequest) returns (TemperaturaResponse);
+    rpc PrevisaoCincoDias (CidadeRequest) returns (PrevisaoResponse);
+    rpc ListarCidades (Empty) returns (CidadesResponse);
+    rpc CadastrarCidade (CadastrarCidadeRequest) returns (CadastrarCidadeResponse);
+    rpc EstatisticasClimaticas (CidadeRequest) returns (EstatisticasResponse);
 }
 ```
 
-### Mensagens (`message`)
+- **`service`:** Define as operações remotas (RPCs). Como um Controller, mas para comunicação direta.
+- **`message`:** Define os tipos de dados usados como Parâmetros (Requests) e Retornos (Responses). Exemplo: `CidadeRequest` encapsula a "String nome" e trafega binariamente pelo protocolo gRPC.
+- **`rpc`:** Representa os 5 serviços implementados:
+  - `ObterTemperaturaAtual`: Recebe uma cidade e retorna a temperatura real atual.
+  - `PrevisaoCincoDias`: Recebe uma cidade e envia previsões aleatórias simulando um período de 5 dias.
+  - `ListarCidades`: Usa a mensagem `Empty` como parâmetro e devolve a lista de cidades catalogadas em memória.
+  - `CadastrarCidade`: Manda um DTO com cidade e temperatura, que é indexada no mapa de memória.
+  - `EstatisticasClimaticas`: Calcula a média, mínima e máxima a partir da variação estocástica atual.
 
-*   `CityRequest`: Contém o nome da cidade para consulta.
-*   `TemperatureResponse`: Retorna a temperatura atual, nome da cidade e unidade.
-*   `ForecastResponse`: Retorna uma lista de previsões para os próximos 5 dias.
-*   `CityListResponse`: Lista os nomes de todas as cidades cadastradas.
-*   `RegisterCityRequest`: Dados necessários para cadastrar uma nova cidade (nome e temperatura inicial).
-*   `StatsResponse`: Estatísticas climáticas (média, mínima e máxima).
+### Como o `.proto` gera código (stubs)?
 
-### RPCs Implementados
+Quando executamos o `mvn clean install` ou `mvn compile`, o Maven utiliza o plugin `protobuf-maven-plugin`. Esse plugin lê o arquivo `.proto`, invoca o compilador do Protobuf (`protoc`) e gera dinamicamente as classes Java correspondentes dentro de `target/generated-sources/protobuf`.
+Essas classes contêm:
 
-1.  **GetCurrentTemperature**: Retorna a temperatura atual de uma cidade específica.
-2.  **GetFiveDayForecast**: Retorna a previsão detalhada para os próximos 5 dias.
-3.  **ListCities**: Retorna a lista de todas as cidades disponíveis no sistema.
-4.  **RegisterCity**: Permite adicionar uma nova cidade ao sistema.
-5.  **GetClimateStats**: Calcula e retorna estatísticas baseadas no histórico de temperaturas da cidade.
+1. Os **Builders e Padrões de Mensagens** (como `CidadeRequest.newBuilder().setNome(...).build()`).
+2. Os **Stubs** (`WeatherServiceBlockingStub` no cliente e `WeatherServiceImplBase` no Servidor).
 
-### Geração de Código (Stubs)
+---
 
-O plugin `protobuf-maven-plugin` no `pom.xml` automatiza a geração dos stubs. Quando executamos `mvn compile`, o compilador `protoc` lê o arquivo `.proto` e gera classes Java que facilitam a implementação do serviço no servidor e a chamada do serviço no cliente.
+## 🔄 Fluxo Completo: De HTTP até gRPC
 
-## Fluxo Completo
+Quando o usuário realiza uma requisição na API via Postman/cURL, o fluxo obedece a seguinte ordem:
 
-1.  O usuário faz uma requisição HTTP GET para `http://localhost:8080/temperatura?cidade=Urutai`.
-2.  O `WeatherController` (Spring MVC) recebe a requisição.
-3.  O Controller utiliza o `WeatherServiceBlockingStub` (gerado pelo gRPC) para fazer uma chamada RPC ao servidor gRPC.
-4.  O `WeatherServiceImpl` no servidor gRPC processa a requisição, busca os dados na memória e retorna uma mensagem gRPC.
-5.  O Controller recebe a resposta gRPC, converte para JSON e retorna ao usuário.
+1. **Requisição HTTP (Rest API):** O cliente envia um JSON ou parâmetro via HTTP para um endpoint, como `GET /temperatura?cidade=Urutai`.
+2. **Controller (`WeatherController.java`):** A classe do Spring intercepta a chamada na porta 8080.
+3. **Mapeamento e Construção (Protobuf):** O Controller empacota os dados recebidos (ex: o parâmetro `cidade`) em uma mensagem do gRPC (usando o `CidadeRequest.newBuilder().build()`).
+4. **Chamada gRPC (Stub):** O Controller invoca o servidor usando o stub `weatherServiceStub.obterTemperaturaAtual(...)` injetado pelo `@GrpcClient`. Isso converte a mensagem Java em bytes eficientes e transmite via HTTP/2 (porta 9090).
+5. **Servidor gRPC (`WeatherServiceImpl.java`):** O servidor processa a chamada, lendo as cidades salvas na memória (`Map` do Java).
+6. **Resposta e Desempacotamento:** O servidor empacota a resposta num `TemperaturaResponse`, devolve ao stub do Controller, e este traduz tudo para um Map (JSON) de volta para o cliente (Postman).
 
-## Exemplos de Uso (Endpoints REST)
+---
 
-### Listar Cidades
-**GET** `/cidades`
+## 🧪 Como Testar a API (e Tirar o Print!)
 
-### Obter Temperatura Atual
-**GET** `/temperatura?cidade=Urutaí`
+Com a aplicação iniciada (`mvn spring-boot:run`), você pode abrir um terminal novo, ou usar o **Postman** (crie Requests na porta `8080`).
 
-### Previsão de 5 Dias
-**GET** `/previsao?cidade=Urutaí`
+### 1. Listar Cidades Disponíveis (GET)
 
-### Estatísticas Climáticas
-**GET** `/estatisticas?cidade=Urutaí`
+**Via cURL (Terminal/PowerShell):**
 
-### Cadastrar Nova Cidade
-**POST** `/cidade`
-```json
-{
-    "nome": "São Paulo",
-    "temperatura": 22.5
-}
+```bash
+curl http://localhost:8080/cidades
 ```
+
+### 2. Obter Temperatura Atual (GET)
+
+```bash
+curl http://localhost:8080/temperatura?cidade=Urutai
+```
+
+### 3. Cadastrar uma Nova Cidade (POST)
+
+**No Postman:**
+
+- URL: `http://localhost:8080/cidade`
+- Method: `POST`
+- Body (RAW -> JSON):
+  ```json
+  {
+    "nome": "Morrinhos"
+  }
+  ```
+
+**No cURL:**
+
+```bash
+curl -X POST http://localhost:8080/cidade -H "Content-Type: application/json" -d "{\"nome\":\"Morrinhos\"}"
+```
+
+### 4. Obter Previsão de 5 Dias (GET)
+
+```bash
+curl http://localhost:8080/previsao?cidade=Goiania
+```
+
+### 5. Obter Estatísticas Climáticas (GET)
+
+```bash
+curl http://localhost:8080/estatisticas?cidade=Ceres
+```
+
+### Prints
+
+![Sistema funcionando](<docs/print(1).png>)
+![Sistema funcionando](<docs/print(2).png>)
+![Sistema funcionando](<docs/print(3).png>)
+![Sistema funcionando](<docs/print(4).png>)
