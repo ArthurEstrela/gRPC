@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:ascopes.github.io)",
+      "Bash(./mvnw clean *)"
+    ]
+  }
+}
